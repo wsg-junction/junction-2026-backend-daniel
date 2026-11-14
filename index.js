@@ -13,30 +13,31 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.post('/v1/chat/completions', async (req, res) => {
-  const key = process.env.FEATHERLESS_API_KEY;
-  if (!key) return res.status(500).json({ error: 'FEATHERLESS_API_KEY not set' });
+function proxyTo(upstream, keyEnv) {
+  return async (req, res) => {
+    const key = process.env[keyEnv];
+    if (!key) return res.status(500).json({ error: `${keyEnv} not set` });
 
-  try {
-    const upstream = await fetch('https://api.featherless.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
-      },
-      body: JSON.stringify(req.body),
-    });
+    try {
+      const upstreamRes = await fetch(upstream, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify(req.body),
+      });
 
-    res.status(upstream.status);
-    upstream.headers.forEach((v, k) => {
-      if (!['transfer-encoding', 'connection'].includes(k)) res.setHeader(k, v);
-    });
-    const data = await upstream.arrayBuffer();
-    res.end(Buffer.from(data));
-  } catch (err) {
-    res.status(502).json({ error: 'upstream error', detail: err.message });
-  }
-});
+      res.status(upstreamRes.status);
+      upstreamRes.headers.forEach((v, k) => {
+        if (!['transfer-encoding', 'connection'].includes(k)) res.setHeader(k, v);
+      });
+      res.end(Buffer.from(await upstreamRes.arrayBuffer()));
+    } catch (err) {
+      res.status(502).json({ error: 'upstream error', detail: err.message });
+    }
+  };
+}
+
+app.post('/v1/chat/completions', proxyTo('https://api.featherless.ai/v1/chat/completions', 'FEATHERLESS_API_KEY'));
+app.post('/nvidia/v1/chat/completions', proxyTo('https://integrate.api.nvidia.com/v1/chat/completions', 'NVIDIA_API_KEY'));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`proxy listening on ${port}`));
