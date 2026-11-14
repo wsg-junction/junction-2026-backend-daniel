@@ -58,6 +58,7 @@ jobs:
 
       - name: Deploy to Verda instance
         run: |
+          ssh "$DEPLOY_TARGET" "mkdir -p /opt/ai-proxy && touch /opt/ai-proxy/.env"
           scp deploy/compose.yml "$DEPLOY_TARGET:/opt/ai-proxy/"
           ssh "$DEPLOY_TARGET" "cd /opt/ai-proxy \
             && sed -i '/^APP_IMAGE=/d' .env \
