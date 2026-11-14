@@ -36,6 +36,8 @@ function proxyTo(upstream, keyEnv) {
   };
 }
 
+app.get('/health', (_, res) => res.sendStatus(200));
+
 app.post('/v1/chat/completions', proxyTo('https://api.featherless.ai/v1/chat/completions', 'FEATHERLESS_API_KEY'));
 app.post('/nvidia/v1/chat/completions', proxyTo('https://integrate.api.nvidia.com/v1/chat/completions', 'NVIDIA_API_KEY'));
 
