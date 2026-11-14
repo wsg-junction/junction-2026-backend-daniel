@@ -7,6 +7,8 @@ on:
 
 env:
   IMAGE_NAME: ai-proxy
+  IMAGE: ghcr.io/${{ github.repository_owner }}/ai-proxy:${{ github.sha }}
+  DEPLOY_TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
 
 jobs:
   build-push:
@@ -33,3 +35,33 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    needs: build-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: deploy
+    environment: prod
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Deploy to Verda instance
+        run: |
+          scp deploy/compose.yml "$DEPLOY_TARGET:/opt/ai-proxy/"
+          ssh "$DEPLOY_TARGET" "cd /opt/ai-proxy \
+            && sed -i '/^APP_IMAGE=/d' .env \
+            && echo 'APP_IMAGE=${{ env.IMAGE }}' >> .env \
+            && docker compose pull app \
+            && docker compose up -d \
+            && docker image prune -f"
