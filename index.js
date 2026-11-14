@@ -37,7 +37,7 @@ function proxyTo(upstream, keyEnv) {
       console.log(`← ${upstream} ${upstreamRes.status}`);
       res.status(upstreamRes.status);
       upstreamRes.headers.forEach((v, k) => {
-        if (!['transfer-encoding', 'connection'].includes(k)) res.setHeader(k, v);
+        if (!['transfer-encoding', 'connection', 'content-encoding'].includes(k)) res.setHeader(k, v);
       });
       res.end(Buffer.from(await upstreamRes.arrayBuffer()));
     } catch (err) {
@@ -52,6 +52,7 @@ app.get('/health', (_, res) => res.sendStatus(200));
 
 app.post('/v1/chat/completions', proxyTo('https://api.featherless.ai/v1/chat/completions', 'FEATHERLESS_API_KEY'));
 app.post('/nvidia/v1/chat/completions', proxyTo('https://integrate.api.nvidia.com/v1/chat/completions', 'NVIDIA_API_KEY'));
+app.post('/nemotron/v1/chat/completions', proxyTo('https://containers.datacrunch.io/nemotron-3-5-super-vl-b300/v1/chat/completions', 'VERDA_INFERENCE_KEY'));
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`proxy listening on ${port}`));

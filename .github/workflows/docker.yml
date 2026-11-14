@@ -58,7 +58,7 @@ jobs:
 
       - name: Deploy to Verda instance
         run: |
-          ssh "$DEPLOY_TARGET" "mkdir -p /opt/ai-proxy && touch /opt/ai-proxy/.env"
+          ssh "$DEPLOY_TARGET" "mkdir -p /opt/ai-proxy && touch /opt/ai-proxy/.env && touch /opt/ai-proxy/app.env"
           scp deploy/compose.yml "$DEPLOY_TARGET:/opt/ai-proxy/"
           ssh "$DEPLOY_TARGET" "echo '${{ secrets.GHCR_PAT }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin \
             && cd /opt/ai-proxy \
