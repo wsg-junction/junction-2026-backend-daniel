@@ -1,5 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import { researchWebWithFallback } from './contextDev.js';
 
 const app = express();
 app.use(express.json());
@@ -48,6 +49,50 @@ function proxyTo(upstream, keyEnv) {
 }
 
 app.get('/health', (_, res) => res.sendStatus(200));
+
+app.get('/search', async (req, res) => {
+  try {
+    const { q, mode } = req.query;
+
+    if (!q) {
+      return res.status(400).json({ error: 'Missing required query parameter: q' });
+    }
+
+    const jsonFormat = {
+      query: q,
+      suggestions: [
+        {
+          name: '',
+          ticker: '',
+          description: '',
+        },
+      ],
+      sources: [
+        {
+          url: '',
+          title: '',
+        },
+      ],
+    };
+
+    console.log(`→ Context.dev /web/answers query="${q}" mode=${mode || 'auto'}`);
+
+    const result = await researchWebWithFallback(q, jsonFormat, {
+      mode: mode || 'auto',
+      timeout: 30000,
+    });
+
+    console.log(`← Context.dev /web/answers success`);
+    res.json(result);
+  } catch (error) {
+    console.error(`Context.dev error: ${error.message}`);
+    res.status(error.message.includes('401') ? 401 : error.message.includes('402') ? 402 : 500).json({
+      error: 'Research failed',
+      detail: error.message,
+    });
+  }
+});
+
 
 
 app.post('/v1/chat/completions', proxyTo('https://api.featherless.ai/v1/chat/completions', 'FEATHERLESS_API_KEY'));
