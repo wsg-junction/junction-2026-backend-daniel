@@ -60,19 +60,8 @@ app.get('/search', async (req, res) => {
 
     const jsonFormat = {
       query: q,
-      suggestions: [
-        {
-          name: '',
-          ticker: '',
-          description: '',
-        },
-      ],
-      sources: [
-        {
-          url: '',
-          title: '',
-        },
-      ],
+      suggestions: Array(5).fill({ name: '', description: '' }),
+      sources: [{ url: '', title: '' }],
     };
 
     console.log(`→ Context.dev /web/answers query="${q}" mode=${mode || 'auto'}`);
