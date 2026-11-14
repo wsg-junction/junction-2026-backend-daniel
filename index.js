@@ -3,21 +3,30 @@ import rateLimit from 'express-rate-limit';
 
 const app = express();
 app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  next();
+});
+app.options('/{*path}', (_, res) => res.sendStatus(204));
 
 // ponytail: global 2/s limit; per-IP if abuse becomes an issue
-const limiter = rateLimit({
-  windowMs: 1000,
-  max: 2,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const limiter = rateLimit({ windowMs: 1000, max: 2, standardHeaders: true, legacyHeaders: false });
 app.use(limiter);
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => console.log(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`));
+  next();
+});
 
 function proxyTo(upstream, keyEnv) {
   return async (req, res) => {
     const key = process.env[keyEnv];
     if (!key) return res.status(500).json({ error: `${keyEnv} not set` });
 
+    console.log(`→ ${upstream} model=${req.body?.model}`);
     try {
       const upstreamRes = await fetch(upstream, {
         method: 'POST',
@@ -25,18 +34,21 @@ function proxyTo(upstream, keyEnv) {
         body: JSON.stringify(req.body),
       });
 
+      console.log(`← ${upstream} ${upstreamRes.status}`);
       res.status(upstreamRes.status);
       upstreamRes.headers.forEach((v, k) => {
         if (!['transfer-encoding', 'connection'].includes(k)) res.setHeader(k, v);
       });
       res.end(Buffer.from(await upstreamRes.arrayBuffer()));
     } catch (err) {
+      console.error(`upstream error ${upstream}: ${err.message}`);
       res.status(502).json({ error: 'upstream error', detail: err.message });
     }
   };
 }
 
 app.get('/health', (_, res) => res.sendStatus(200));
+
 
 app.post('/v1/chat/completions', proxyTo('https://api.featherless.ai/v1/chat/completions', 'FEATHERLESS_API_KEY'));
 app.post('/nvidia/v1/chat/completions', proxyTo('https://integrate.api.nvidia.com/v1/chat/completions', 'NVIDIA_API_KEY'));
