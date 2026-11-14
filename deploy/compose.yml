@@ -3,6 +3,7 @@ services:
     image: ${APP_IMAGE}
     restart: unless-stopped
     env_file: app.env
+    networks: [internal]
 
   caddy:
     image: caddy:2-alpine
@@ -14,6 +15,10 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
     depends_on: [app]
+    networks: [internal]
 
 volumes:
   caddy_data:
+
+networks:
+  internal:
